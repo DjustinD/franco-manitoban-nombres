@@ -5,6 +5,7 @@ const difficultySelect = document.getElementById('difficulty');
 
 let currentModule = '';
 let isRecognitionActive = false;
+let isPaused = true; 
 
 // --- Core Data ---
 const frWords = {
@@ -20,17 +21,6 @@ const frWords = {
     90: "quatre-vingt-dix", 91: "quatre-vingt-onze", 92: "quatre-vingt-douze", 93: "quatre-vingt-treize", 94: "quatre-vingt-quatorze", 95: "quatre-vingt-quinze", 96: "quatre-vingt-seize", 97: "quatre-vingt-dix-sept", 98: "quatre-vingt-dix-huit", 99: "quatre-vingt-dix-neuf",
     100: "cent"
 };
-
-function getFr(n) {
-    if (frWords[n]) return frWords[n];
-    if (n < 70) {
-        let d = Math.floor(n/10)*10, r = n%10;
-        return frWords[d] + (r === 1 ? " et un" : "-" + frWords[r]);
-    }
-    if (n < 80) return "soixante-" + getFr(n-60);
-    if (n < 100) return "quatre-vingt-" + getFr(n-80);
-    return n.toString();
-}
 
 // --- Speech Engine ---
 const synth = window.speechSynthesis;
@@ -53,75 +43,126 @@ function speak(text) {
 
 function listenForWord(targetWord) {
     return new Promise((resolve) => {
-        if (isRecognitionActive) recognition.stop();
-        
+        if (isRecognitionActive) try { recognition.stop(); } catch(e) {}
         setTimeout(() => {
-            try { recognition.start(); } catch(e) { resolve(false); }
+            try { recognition.start(); } catch(e) { resolve({ success: false, transcript: "" }); }
         }, 100);
 
         recognition.onresult = (e) => {
-            const result = e.results[0][0].transcript.toLowerCase();
-            resolve(result.includes(targetWord.toLowerCase()));
+            const transcript = e.results[0][0].transcript.toLowerCase();
+            resolve({ success: transcript.includes(targetWord.toLowerCase()), transcript: transcript });
         };
-        recognition.onerror = () => resolve(false);
+        recognition.onerror = () => resolve({ success: false, transcript: "Erreur" });
     });
 }
 
-// --- App Control ---
+// --- App Flow ---
+function toggleProcess() {
+    isPaused = !isPaused;
+    if (!isPaused) switchModule(currentModule || 'listen');
+    else {
+        synth.cancel();
+        try { recognition.stop(); } catch(e) {}
+        status.innerText = "Session en pause";
+    }
+}
+
 async function switchModule(type) {
     currentModule = type;
-    synth.cancel();
-    try { recognition.stop(); } catch(e) {}
-    
+    if (isPaused) return; 
+
     app.innerHTML = '';
     const num = Math.floor(Math.random() * parseInt(difficultySelect.value)) + 1;
-    const word = getFr(num);
+    const word = frWords[num];
 
     if (type === 'listen') runListenModule(num, word);
     if (type === 'read') runReadModule(num, word);
     if (type === 'spell') runSpellModule(num, word);
 }
 
+// --- Modules ---
 async function runListenModule(num, word) {
-    app.innerHTML = `<div class="card"><span class="big-number">${num}</span><p>${word}</p><div class="btn-row"><button onclick="switchModule('listen')" class="btn-secondary">Passer ⏭️</button></div></div>`;
-    for (let i = 0; i < 5; i++) { 
-        if (currentModule !== 'listen') return;
-        await speak(word); 
-    }
+    app.innerHTML = `
+        <div class="card">
+            <span class="big-number">${num}</span>
+            <p>${word}</p>
+            <div id="reps">⚪ ⚪ ⚪ ⚪ ⚪</div>
+            <p id="heard" style="color:var(--primary-light); font-style:italic; min-height:1.2rem;"></p>
+            <div class="btn-row">
+                <button onclick="toggleProcess()">${isPaused ? '▶️ Reprendre' : '⏸️ Arrêter'}</button>
+                <button onclick="switchModule('listen')" class="btn-secondary">Passer ⏭️</button>
+            </div>
+        </div>`;
+    
     for (let i = 0; i < 5; i++) {
-        if (currentModule !== 'listen') return;
-        status.innerText = `Répétez: ${i+1}/5`;
-        let success = false;
-        while (!success && currentModule === 'listen') success = await listenForWord(word);
+        if (isPaused || currentModule !== 'listen') return;
+        await speak(word);
     }
-    if (currentModule === 'listen') switchModule('listen');
+
+    let results = [];
+    for (let i = 0; i < 5; i++) {
+        if (isPaused || currentModule !== 'listen') return;
+        status.innerText = `Répétez: ${i+1}/5`;
+        const { success, transcript } = await listenForWord(word);
+        document.getElementById('heard').innerText = `J'ai entendu: "${transcript}"`;
+        results.push(success);
+        document.getElementById('reps').innerText = results.map(s => s ? "✅" : "❌").concat(Array(5 - results.length).fill("⚪")).join(" ");
+    }
+    if (!isPaused) setTimeout(() => switchModule('listen'), 1500);
 }
 
 async function runReadModule(num, word) {
-    app.innerHTML = `<div class="card"><span class="big-number">${num}</span><p>Lisez à voix haute</p><div class="btn-row"><button onclick="switchModule('read')" class="btn-secondary">Passer ⏭️</button></div></div>`;
+    app.innerHTML = `
+        <div class="card">
+            <span class="big-number">${num}</span>
+            <p>Lisez à voix haute</p>
+            <p id="heard" style="color:var(--primary-light); font-style:italic; min-height:1.2rem;"></p>
+            <div class="btn-row">
+                <button onclick="toggleProcess()">${isPaused ? '▶️ Reprendre' : '⏸️ Arrêter'}</button>
+                <button onclick="switchModule('read')" class="btn-secondary">Passer ⏭️</button>
+            </div>
+        </div>`;
+    
     let success = false;
-    while (!success && currentModule === 'read') success = await listenForWord(word);
-    if (currentModule === 'read') switchModule('read');
+    while (!success && !isPaused && currentModule === 'read') {
+        const res = await listenForWord(word);
+        document.getElementById('heard').innerText = `J'ai entendu: "${res.transcript}"`;
+        success = res.success;
+    }
+    if (success && !isPaused) setTimeout(() => switchModule('read'), 1500);
 }
 
 async function runSpellModule(num, word) {
     app.innerHTML = `
         <div class="card">
             <span class="big-number">${num}</span>
-            <input type="text" id="spellInput" autocomplete="off" autofocus>
+            <input type="text" id="spellInput" autocomplete="off" autofocus placeholder="Écrivez ici...">
+            <div id="correct-ans" style="color:var(--success); font-weight:bold; min-height:1.2rem; margin:10px 0;"></div>
             <div class="btn-row">
                 <button id="vBtn">Vérifier</button>
+                <button onclick="toggleProcess()">${isPaused ? '▶️ Reprendre' : '⏸️ Arrêter'}</button>
                 <button onclick="switchModule('spell')" class="btn-secondary">Passer ⏭️</button>
             </div>
         </div>`;
     
     speak(word);
-    document.getElementById('vBtn').onclick = () => {
-        if (document.getElementById('spellInput').value.toLowerCase().trim() === word) switchModule('spell');
+    const input = document.getElementById('spellInput');
+    const ansDiv = document.getElementById('correct-ans');
+
+    document.getElementById('vBtn').onclick = async () => {
+        const userVal = input.value.toLowerCase().trim();
+        ansDiv.innerText = word; // Always show correct spelling on check
+        if (userVal === word) {
+            status.innerText = "Excellent!";
+            setTimeout(() => { if(!isPaused) switchModule('spell')}, 2000);
+        } else {
+            status.innerText = "Presque... regardez l'orthographe.";
+            await speak(word);
+        }
     };
 }
 
 window.onload = () => {
-    difficultySelect.onchange = () => switchModule(currentModule);
+    difficultySelect.onchange = () => { if(!isPaused) switchModule(currentModule); };
     switchModule('listen');
 };
