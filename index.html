@@ -28,6 +28,7 @@
             <option value="50">Moyen (1–50)</option>
             <option value="100" selected>Difficile (1–100)</option>
         </select>
+        <button id="global-pause" onclick="toggleProcess()" class="btn-pause">⏸️ Pause</button>
         <div id="score-display">
             <span id="streak-count">🔥 0</span>
             <span id="score-count">✅ 0 / 0</span>
@@ -35,10 +36,7 @@
     </div>
 
     <div id="mic-indicator" class="hidden">🎤 À vous de parler...</div>
-    <div id="controls-bar">
-        <button id="global-pause" onclick="toggleProcess()" style="background:#455a64; font-size:0.8rem;">⏸️ Pause/Play</button>
-        <div id="score-display"> ... </div>
-    </div>
+
     <main id="app"></main>
 
     <div id="status-bar"></div>

@@ -58,7 +58,47 @@ nav {
     border-radius: 8px;
     font-weight: 600;
 }
+/* ... keep your existing variables ... */
 
+#controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+    padding: 0.6rem 1.2rem;
+    background: white;
+    border-radius: 50px;
+    box-shadow: var(--shadow);
+}
+
+.btn-pause {
+    background: #455a64;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+}
+
+#mic-indicator {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.8rem 1.5rem;
+    background: var(--error);
+    color: white;
+    border-radius: 50px;
+    font-weight: bold;
+    z-index: 100;
+}
+
+/* Added for the transcript visibility */
+#heard {
+    background: rgba(30, 136, 229, 0.1);
+    padding: 5px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+/* ... keep the rest of your card and big-number styles ... */
 .card {
     background: var(--card-bg);
     padding: 2.5rem;

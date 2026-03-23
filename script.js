@@ -2,25 +2,14 @@ const app = document.getElementById('app');
 const status = document.getElementById('status-bar');
 const micInd = document.getElementById('mic-indicator');
 const difficultySelect = document.getElementById('difficulty');
+const pauseBtn = document.getElementById('global-pause');
 
 let currentModule = '';
 let isRecognitionActive = false;
 let isPaused = true; 
 
 // --- Core Data ---
-const frWords = {
-    1: "un", 2: "deux", 3: "trois", 4: "quatre", 5: "cinq", 6: "six", 7: "sept", 8: "huit", 9: "neuf", 10: "dix",
-    11: "onze", 12: "douze", 13: "treize", 14: "quatorze", 15: "quinze", 16: "seize", 17: "dix-sept", 18: "dix-huit", 19: "dix-neuf",
-    20: "vingt", 21: "vingt et un", 22: "vingt-deux", 23: "vingt-trois", 24: "vingt-quatre", 25: "vingt-cinq", 26: "vingt-six", 27: "vingt-sept", 28: "vingt-huit", 29: "vingt-neuf",
-    30: "trente", 31: "trente et un", 32: "trente-deux", 33: "trente-trois", 34: "trente-quatre", 35: "trente-cinq", 36: "trente-six", 37: "trente-sept", 38: "trente-huit", 39: "trente-neuf",
-    40: "quarante", 41: "quarante et un", 42: "quarante-deux", 43: "quarante-trois", 44: "quarante-quatre", 45: "quarante-cinq", 46: "quarante-six", 47: "quarante-sept", 48: "quarante-huit", 49: "quarante-neuf",
-    50: "cinquante", 51: "cinquante et un", 52: "cinquante-deux", 53: "cinquante-trois", 54: "cinquante-quatre", 55: "cinquante-cinq", 56: "cinquante-six", 57: "cinquante-sept", 58: "cinquante-huit", 59: "cinquante-neuf",
-    60: "soixante", 61: "soixante et un", 62: "soixante-deux", 63: "soixante-trois", 64: "soixante-quatre", 65: "soixante-cinq", 66: "soixante-six", 67: "soixante-sept", 68: "soixante-huit", 69: "soixante-neuf",
-    70: "soixante-dix", 71: "soixante et onze", 72: "soixante-douze", 73: "soixante-treize", 74: "soixante-quatorze", 75: "soixante-quinze", 76: "soixante-seize", 77: "soixante-dix-sept", 78: "soixante-dix-huit", 79: "soixante-dix-neuf",
-    80: "quatre-vingts", 81: "quatre-vingt-un", 82: "quatre-vingt-deux", 83: "quatre-vingt-trois", 84: "quatre-vingt-quatre", 85: "quatre-vingt-cinq", 86: "quatre-vingt-six", 87: "quatre-vingt-sept", 88: "quatre-vingt-huit", 89: "quatre-vingt-neuf",
-    90: "quatre-vingt-dix", 91: "quatre-vingt-onze", 92: "quatre-vingt-douze", 93: "quatre-vingt-treize", 94: "quatre-vingt-quatorze", 95: "quatre-vingt-quinze", 96: "quatre-vingt-seize", 97: "quatre-vingt-dix-sept", 98: "quatre-vingt-dix-huit", 99: "quatre-vingt-dix-neuf",
-    100: "cent"
-};
+const frWords = { /* ... keep your full 1-100 object here ... */ };
 
 // --- Speech Engine ---
 const synth = window.speechSynthesis;
@@ -43,22 +32,33 @@ function speak(text) {
 
 function listenForWord(targetWord) {
     return new Promise((resolve) => {
-        if (isRecognitionActive) try { recognition.stop(); } catch(e) {}
+        // Prevent InvalidStateError by checking active status
+        if (isRecognitionActive) {
+            recognition.stop();
+        }
+        
+        // Small delay ensures the previous session actually closed
         setTimeout(() => {
-            try { recognition.start(); } catch(e) { resolve({ success: false, transcript: "" }); }
-        }, 100);
+            try { 
+                recognition.start(); 
+            } catch(e) { 
+                console.error("Mic Error:", e);
+                resolve({ success: false, transcript: "" }); 
+            }
+        }, 300);
 
         recognition.onresult = (e) => {
             const transcript = e.results[0][0].transcript.toLowerCase();
             resolve({ success: transcript.includes(targetWord.toLowerCase()), transcript: transcript });
         };
-        recognition.onerror = () => resolve({ success: false, transcript: "Erreur" });
+        recognition.onerror = () => resolve({ success: false, transcript: "---" });
     });
 }
 
 // --- App Flow ---
 function toggleProcess() {
     isPaused = !isPaused;
+    pauseBtn.innerText = isPaused ? "▶️ Reprendre" : "⏸️ Pause";
     if (!isPaused) switchModule(currentModule || 'listen');
     else {
         synth.cancel();
@@ -87,9 +87,8 @@ async function runListenModule(num, word) {
             <span class="big-number">${num}</span>
             <p>${word}</p>
             <div id="reps">⚪ ⚪ ⚪ ⚪ ⚪</div>
-            <p id="heard" style="color:var(--primary-light); font-style:italic; min-height:1.2rem;"></p>
+            <p id="heard"></p>
             <div class="btn-row">
-                <button onclick="toggleProcess()">${isPaused ? '▶️ Reprendre' : '⏸️ Arrêter'}</button>
                 <button onclick="switchModule('listen')" class="btn-secondary">Passer ⏭️</button>
             </div>
         </div>`;
@@ -107,6 +106,7 @@ async function runListenModule(num, word) {
         document.getElementById('heard').innerText = `J'ai entendu: "${transcript}"`;
         results.push(success);
         document.getElementById('reps').innerText = results.map(s => s ? "✅" : "❌").concat(Array(5 - results.length).fill("⚪")).join(" ");
+        await new Promise(r => setTimeout(r, 500)); // Pause between tries
     }
     if (!isPaused) setTimeout(() => switchModule('listen'), 1500);
 }
@@ -116,9 +116,8 @@ async function runReadModule(num, word) {
         <div class="card">
             <span class="big-number">${num}</span>
             <p>Lisez à voix haute</p>
-            <p id="heard" style="color:var(--primary-light); font-style:italic; min-height:1.2rem;"></p>
+            <p id="heard"></p>
             <div class="btn-row">
-                <button onclick="toggleProcess()">${isPaused ? '▶️ Reprendre' : '⏸️ Arrêter'}</button>
                 <button onclick="switchModule('read')" class="btn-secondary">Passer ⏭️</button>
             </div>
         </div>`;
@@ -140,7 +139,6 @@ async function runSpellModule(num, word) {
             <div id="correct-ans" style="color:var(--success); font-weight:bold; min-height:1.2rem; margin:10px 0;"></div>
             <div class="btn-row">
                 <button id="vBtn">Vérifier</button>
-                <button onclick="toggleProcess()">${isPaused ? '▶️ Reprendre' : '⏸️ Arrêter'}</button>
                 <button onclick="switchModule('spell')" class="btn-secondary">Passer ⏭️</button>
             </div>
         </div>`;
@@ -149,14 +147,19 @@ async function runSpellModule(num, word) {
     const input = document.getElementById('spellInput');
     const ansDiv = document.getElementById('correct-ans');
 
+    // Handle Enter Key
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('vBtn').click();
+    });
+
     document.getElementById('vBtn').onclick = async () => {
         const userVal = input.value.toLowerCase().trim();
-        ansDiv.innerText = word; // Always show correct spelling on check
+        ansDiv.innerText = word; 
         if (userVal === word) {
             status.innerText = "Excellent!";
-            setTimeout(() => { if(!isPaused) switchModule('spell')}, 2000);
+            setTimeout(() => { if(!isPaused) switchModule('spell')}, 1500);
         } else {
-            status.innerText = "Presque... regardez l'orthographe.";
+            status.innerText = "Réessayez...";
             await speak(word);
         }
     };
@@ -164,5 +167,6 @@ async function runSpellModule(num, word) {
 
 window.onload = () => {
     difficultySelect.onchange = () => { if(!isPaused) switchModule(currentModule); };
-    switchModule('listen');
+    // Set initial view without starting automatically
+    app.innerHTML = '<div class="card"><h2>Prêt?</h2><button onclick="toggleProcess()">Démarrer la session</button></div>';
 };
