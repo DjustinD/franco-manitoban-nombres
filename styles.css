@@ -1,0 +1,82 @@
+:root {
+    --primary: #0984e3;
+    --success: #00b894;
+    --bg: #f5f6fa;
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: var(--bg);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+nav {
+    background: white;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+    gap: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: white;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#app {
+    margin-top: 50px;
+    text-align: center;
+    max-width: 600px;
+    width: 90%;
+}
+
+.card {
+    background: white;
+    padding: 3rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+}
+
+.big-number {
+    font-size: 5rem;
+    color: var(--primary);
+    display: block;
+}
+
+.word-display {
+    font-size: 2rem;
+    margin: 20px 0;
+    color: #2d3436;
+}
+
+#status-bar {
+    position: fixed;
+    bottom: 20px;
+    padding: 10px 20px;
+    border-radius: 20px;
+    background: #2d3436;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.listening {
+    border: 4px solid var(--success) !important;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
