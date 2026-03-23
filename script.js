@@ -1,5 +1,6 @@
 const app = document.getElementById('app');
 const status = document.getElementById('status-bar');
+const micInd = document.getElementById('mic-indicator');
 
 // --- Core Data & Utilities ---
 const frWords = {
@@ -19,29 +20,11 @@ function getFr(n) {
     return n.toString();
 }
 
-// --- Speech Engine ---
+// --- Speech & Recognition Core ---
 const synth = window.speechSynthesis;
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = new SpeechRecognition();
 recognition.lang = 'fr-CA';
-recognition.continuous = false; // Stop after one result
-recognition.interimResults = false;
-
-let isRecognizing = false;
-
-// Safety wrapper to prevent the "already started" error
-function startRecognition() {
-    if (!isRecognizing) {
-        try {
-            recognition.start();
-            isRecognizing = true;
-        } catch (e) {
-            console.error("Recognition error:", e);
-        }
-    }
-}
-
-recognition.onend = () => { isRecognizing = false; };
 
 function speak(text) {
     return new Promise(resolve => {
@@ -54,92 +37,110 @@ function speak(text) {
     });
 }
 
-// --- Modules ---
-let currentNum = 1;
-let currentActiveModule = '';
+function listenForWord(targetWord) {
+    return new Promise((resolve) => {
+        micInd.classList.remove('hidden');
+        recognition.start();
+        
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript.toLowerCase();
+            if (transcript.includes(targetWord.toLowerCase())) {
+                resolve(true);
+            } else {
+                status.innerText = `J'ai entendu "${transcript}". Réessayez!`;
+                resolve(false);
+            }
+        };
+
+        recognition.onerror = () => resolve(false);
+        recognition.onend = () => micInd.classList.add('hidden');
+    });
+}
+
+// --- Module Management ---
+let currentModule = '';
 
 async function switchModule(type) {
-    currentActiveModule = type;
-    synth.cancel(); // Stop any current talking
-    try { recognition.stop(); } catch(e) {} // Stop any current listening
-    
+    currentModule = type;
+    synth.cancel();
+    try { recognition.stop(); } catch(e) {}
     app.innerHTML = '';
-    currentNum = Math.floor(Math.random() * 100) + 1;
     
-    if (type === 'listen') startListenModule();
-    if (type === 'read') startReadModule();
-    if (type === 'spell') startSpellModule();
+    const num = Math.floor(Math.random() * 100) + 1;
+    const word = getFr(num);
+
+    if (type === 'listen') runListenModule(num, word);
+    if (type === 'read') runReadModule(num, word);
+    if (type === 'spell') runSpellModule(num, word);
 }
 
-async function startListenModule() {
-    const word = getFr(currentNum);
-    app.innerHTML = `<div class="card"><span class="big-number">${currentNum}</span><p>${word}</p><h2 id="step">Écoutez...</h2></div>`;
+// --- 1. Listen Module ---
+async function runListenModule(num, word) {
+    app.innerHTML = `<div class="card"><span class="big-number">${num}</span><p id="word-txt">${word}</p><h2 id="msg">Écoutez...</h2></div>`;
     
-    // Listen phase (5 times)
-    for(let i=0; i<5; i++) {
-        if (currentActiveModule !== 'listen') return;
+    for (let i = 0; i < 5; i++) {
+        if (currentModule !== 'listen') return;
+        status.innerText = `Écoute ${i+1}/5`;
         await speak(word);
     }
-    
-    // Repeat phase (5 times)
-    const stepLabel = document.getElementById('step');
-    if (stepLabel) stepLabel.innerText = "À vous! Dites-le 5 fois.";
-    
-    for(let i=0; i<5; i++) {
-        if (currentActiveModule !== 'listen') return;
+
+    document.getElementById('msg').innerText = "À vous ! Répétez 5 fois.";
+    for (let i = 0; i < 5; i++) {
+        if (currentModule !== 'listen') return;
         status.innerText = `Répétition ${i+1}/5`;
-        await new Promise(res => {
-            recognition.onresult = () => res();
-            recognition.onerror = () => res(); // Continue even if it misses one
-            startRecognition();
-        });
-    }
-    status.innerText = "Excellent!";
-    setTimeout(() => { if(currentActiveModule === 'listen') startListenModule(); }, 2000);
-}
-
-function startReadModule() {
-    const word = getFr(currentNum);
-    app.innerHTML = `<div class="card"><span class="big-number">${currentNum}</span><p>Lisez à voix haute</p></div>`;
-    
-    recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript.toLowerCase();
-        if(transcript.includes(word)) {
-            status.innerText = "Correct!";
-            setTimeout(() => { if(currentActiveModule === 'read') switchModule('read'); }, 1500);
-        } else {
-            status.innerText = `J'ai entendu "${transcript}". Réessayez.`;
-            startRecognition(); // Try again
+        let success = false;
+        while (!success && currentModule === 'listen') {
+            success = await listenForWord(word);
         }
-    };
-    startRecognition();
+    }
+    
+    status.innerText = "Excellent ! Suivant...";
+    setTimeout(() => switchModule('listen'), 1500);
 }
 
-function startSpellModule() {
-    const word = getFr(currentNum);
+// --- 2. Read Module ---
+async function runReadModule(num, word) {
+    app.innerHTML = `<div class="card"><span class="big-number">${num}</span><p>Lisez le nombre à voix haute</p></div>`;
+    
+    let success = false;
+    while (!success && currentModule === 'read') {
+        success = await listenForWord(word);
+    }
+    
+    status.innerText = "Parfait !";
+    setTimeout(() => switchModule('read'), 1500);
+}
+
+// --- 3. Spell Module ---
+async function runSpellModule(num, word) {
     app.innerHTML = `
         <div class="card">
-            <span class="big-number">${currentNum}</span>
-            <input type="text" id="spellInput" autocomplete="off" placeholder="...">
-            <button onclick="checkSpell('${word}')">Vérifier</button>
+            <span class="big-number">${num}</span>
+            <input type="text" id="spellInput" autofocus autocomplete="off">
+            <button id="checkBtn">Vérifier</button>
+            <div id="flash" class="feedback-flash"></div>
         </div>`;
+    
     speak(word);
+
+    const input = document.getElementById('spellInput');
+    const flash = document.getElementById('flash');
+
+    document.getElementById('checkBtn').onclick = () => {
+        if (input.value.toLowerCase().trim() === word) {
+            flash.innerText = "✅";
+            flash.classList.add('show-feedback');
+            status.innerText = "Correct !";
+            setTimeout(() => switchModule('spell'), 1500);
+        } else {
+            flash.innerText = "❌";
+            flash.classList.add('show-feedback');
+            status.innerText = "Réessayez...";
+            speak(word);
+            setTimeout(() => flash.classList.remove('show-feedback'), 1000);
+        }
+    };
 }
 
-window.checkSpell = (correct) => {
-    const input = document.getElementById('spellInput').value.toLowerCase().trim();
-    if(input === correct) {
-        status.innerText = "Parfait!";
-        setTimeout(() => { if(currentActiveModule === 'spell') switchModule('spell'); }, 1500);
-    } else {
-        status.innerText = "Pas tout à fait. Réessayez.";
-        speak(correct);
-    }
-}
-
-// Init
-window.addEventListener('load', () => {
-    // Required for some browsers to load voices
-    synth.getVoices();
-    switchModule('listen');
-});
+// Initial Load
+window.onload = () => switchModule('listen');
