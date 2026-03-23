@@ -68,7 +68,15 @@ nav {
     max-width: 500px;
     text-align: center;
 }
+.card p { margin: 10px 0; font-size: 1.1rem; }
+#reps { font-size: 1.6rem; margin: 15px 0; }
+input[type="text"] { margin-bottom: 5px; }
 
+/* Pulse the card slightly when listening */
+.card:has(#mic-indicator:not(.hidden)) {
+    box-shadow: 0 0 15px var(--error);
+    transition: box-shadow 0.3s;
+}
 .big-number {
     font-size: 5rem;
     font-weight: 900;
