@@ -111,13 +111,17 @@ async function runReadModule(num, word) {
     setTimeout(() => switchModule('read'), 1500);
 }
 
-// --- 3. Spell Module ---
+// --- 3. Spell Module (With Reveal Feature) ---
 async function runSpellModule(num, word) {
     app.innerHTML = `
         <div class="card">
             <span class="big-number">${num}</span>
-            <input type="text" id="spellInput" autofocus autocomplete="off">
-            <button id="checkBtn">Vérifier</button>
+            <div id="reveal-area" style="min-height: 1.5rem; margin-bottom: 10px; font-weight: bold; color: var(--primary);"></div>
+            <input type="text" id="spellInput" autofocus autocomplete="off" placeholder="Épelez ici...">
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+                <button id="checkBtn">Vérifier</button>
+                <button id="revealBtn" style="background: #636e72;">Montrer</button>
+            </div>
             <div id="flash" class="feedback-flash"></div>
         </div>`;
     
@@ -125,21 +129,46 @@ async function runSpellModule(num, word) {
 
     const input = document.getElementById('spellInput');
     const flash = document.getElementById('flash');
+    const revealArea = document.getElementById('reveal-area');
 
+    // Reveal Logic
+    document.getElementById('revealBtn').onclick = async () => {
+        revealArea.innerText = word; // Show the word
+        await speak(word);
+        setTimeout(() => {
+            revealArea.innerText = ""; // Hide it again after 2 seconds
+        }, 2000);
+    };
+
+    // Check Logic
     document.getElementById('checkBtn').onclick = () => {
-        if (input.value.toLowerCase().trim() === word) {
+        const userValue = input.value.toLowerCase().trim();
+        
+        // Remove extra spaces or common typo hyphens for a slightly more forgiving check if desired, 
+        // but here we stick to the exact word match.
+        if (userValue === word) {
             flash.innerText = "✅";
             flash.classList.add('show-feedback');
             status.innerText = "Correct !";
+            // Disable buttons to prevent double-clicks during transition
+            document.getElementById('checkBtn').disabled = true;
+            document.getElementById('revealBtn').disabled = true;
             setTimeout(() => switchModule('spell'), 1500);
         } else {
             flash.innerText = "❌";
             flash.classList.add('show-feedback');
-            status.innerText = "Réessayez...";
+            status.innerText = "Pas tout à fait. Écoutez encore.";
             speak(word);
-            setTimeout(() => flash.classList.remove('show-feedback'), 1000);
+            setTimeout(() => {
+                flash.classList.remove('show-feedback');
+            }, 1000);
         }
     };
+
+    // Allow "Enter" key to submit
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('checkBtn').click();
+    });
 }
 
 // Initial Load
