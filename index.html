@@ -3,16 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Français Nombres</title>
-    <link rel="icon" href="data:,">
+    <title>Franco-Manitoban Nombres</title>
+    <link rel="icon" href="favicon.png">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <header>
+        <div class="header-content">
+            <h1>🇨🇦 Franco-Manitoban Nombres</h1>
+            <p class="subtitle">Apprenez les nombres en français canadien</p>
+        </div>
+    </header>
+
     <nav>
-        <button onclick="switchModule('listen')">Écouter</button>
-        <button onclick="switchModule('read')">Lire</button>
-        <button onclick="switchModule('spell')">Épeler</button>
+        <button id="btn-listen" onclick="switchModule('listen')">🔊 Écouter</button>
+        <button id="btn-read" onclick="switchModule('read')">📖 Lire</button>
+        <button id="btn-spell" onclick="switchModule('spell')">✏️ Épeler</button>
     </nav>
+
+    <div id="controls-bar">
+        <label for="difficulty">Difficulté :</label>
+        <select id="difficulty">
+            <option value="20">Facile (1–20)</option>
+            <option value="50">Moyen (1–50)</option>
+            <option value="100" selected>Difficile (1–100)</option>
+        </select>
+        <div id="score-display">
+            <span id="streak-count">🔥 0</span>
+            <span id="score-count">✅ 0 / 0</span>
+        </div>
+    </div>
 
     <div id="mic-indicator" class="hidden">🎤 À vous de parler...</div>
 
