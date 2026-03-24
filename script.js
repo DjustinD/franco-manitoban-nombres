@@ -66,6 +66,8 @@ const frWords = {
     91: "quatre-vingt-onze", 92: "quatre-vingt-douze", 93: "quatre-vingt-treize", 94: "quatre-vingt-quatorze", 95: "quatre-vingt-quinze",
     96: "quatre-vingt-seize", 97: "quatre-vingt-dix-sept", 98: "quatre-vingt-dix-huit", 99: "quatre-vingt-dix-neuf", 100: "cent"
 };
+// Reverse map: French word → digit (used to accept "16." when target is "seize")
+const wordToNum = Object.fromEntries(Object.entries(frWords).map(([n, w]) => [w, Number(n)]));
 
 // --- Speech Engine ---
 const synth = window.speechSynthesis;
@@ -125,8 +127,13 @@ function normalizeForSpeech(str) {
 function speechMatch(transcript, target) {
     const t = normalizeForSpeech(transcript);
     const w = normalizeForSpeech(target);
-    // Also match without trailing 's' (quatre-vingts → quatre vingt)
-    return t.includes(w) || t.includes(w.replace(/s$/, ''));
+    // Word-level match (also handles trailing 's': quatre-vingts → quatre vingt)
+    if (t.includes(w) || t.includes(w.replace(/s$/, ''))) return true;
+    // Digit match: STT engine sometimes returns the numeral instead of the word (e.g. "16." for "seize")
+    const digits = transcript.replace(/[^0-9]/g, '');
+    const num = wordToNum[target];
+    if (num !== undefined && digits === String(num)) return true;
+    return false;
 }
 
 function updateScore(correct) {
