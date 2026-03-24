@@ -31,13 +31,11 @@ function log(type, data) {
 
 function downloadLog() {
     const lines = sessionLog.map(e => {
-        const parts = Object.entries(e).map(([k,v]) => `${k}=${JSON.stringify(v)}`).join('	');
+        const parts = Object.entries(e).map(([k,v]) => `${k}=${JSON.stringify(v)}`).join('\t');
         return parts;
     });
-    const header = 'time	type	[fields...]';
-    const blob = new Blob([header + '
-' + lines.join('
-')], { type: 'text/plain' });
+    const header = 'time\ttype\t[fields...]';
+    const blob = new Blob([header + '\n' + lines.join('\n')], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `nombres-log-${new Date().toISOString().replace(/[:.]/g,'-')}.tsv`;
