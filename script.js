@@ -11,6 +11,40 @@ let score = 0;
 let total = 0;
 let streak = 0;
 
+// --- Session Log ---
+const sessionLog = [];
+
+function log(type, data) {
+    const entry = { time: new Date().toISOString(), type, ...data };
+    sessionLog.push(entry);
+    const label = {
+        tts:      '🔊 TTS',
+        stt:      '🎤 STT',
+        result:   '📊 Result',
+        module:   '📂 Module',
+        pause:    '⏸️  Pause',
+        score:    '✅ Score',
+    }[type] ?? type;
+    const detail = Object.entries(data).map(([k,v]) => `${k}=${JSON.stringify(v)}`).join(' ');
+    console.log(`[${entry.time}] ${label}  ${detail}`);
+}
+
+function downloadLog() {
+    const lines = sessionLog.map(e => {
+        const parts = Object.entries(e).map(([k,v]) => `${k}=${JSON.stringify(v)}`).join('	');
+        return parts;
+    });
+    const header = 'time	type	[fields...]';
+    const blob = new Blob([header + '
+' + lines.join('
+')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `nombres-log-${new Date().toISOString().replace(/[:.]/g,'-')}.tsv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
 // --- Core Data ---
 const frWords = {
     1: "un", 2: "deux", 3: "trois", 4: "quatre", 5: "cinq",
@@ -49,6 +83,7 @@ function speak(text) {
         synth.cancel();
         const utter = new SpeechSynthesisUtterance(text);
         utter.lang = 'fr-CA';
+        log('tts', { module: currentModule, text });
         utter.onend = resolve;
         synth.speak(utter);
     });
@@ -73,9 +108,15 @@ function listenForWord(targetWord) {
 
         recognition.onresult = (e) => {
             const transcript = e.results[0][0].transcript.toLowerCase();
-            resolve({ success: speechMatch(transcript, targetWord), transcript });
+            const confidence = e.results[0][0].confidence;
+            const matched = speechMatch(transcript, targetWord);
+            log('stt', { module: currentModule, target: targetWord, heard: transcript, confidence: +confidence.toFixed(3), matched });
+            resolve({ success: matched, transcript });
         };
-        recognition.onerror = () => resolve({ success: false, transcript: "---" });
+        recognition.onerror = (e) => {
+            log('stt', { module: currentModule, target: targetWord, heard: null, error: e.error });
+            resolve({ success: false, transcript: '---' });
+        };
     });
 }
 
@@ -96,12 +137,14 @@ function updateScore(correct) {
     else { streak = 0; }
     document.getElementById('score-count').innerText = `✅ ${score} / ${total}`;
     document.getElementById('streak-count').innerText = `🔥 ${streak}`;
+    log('score', { correct, score, total, streak });
 }
 
 // --- App Flow ---
 function toggleProcess() {
     isPaused = !isPaused;
     pauseBtn.innerText = isPaused ? "▶️ Reprendre" : "⏸️ Pause";
+    log('pause', { isPaused });
     if (!isPaused) switchModule(currentModule || 'listen');
     else {
         synth.cancel();
@@ -115,6 +158,7 @@ async function switchModule(type) {
     ['listen', 'read', 'spell'].forEach(m => {
         document.getElementById(`btn-${m}`).classList.toggle('active', m === type);
     });
+    log('module', { module: type, difficulty: difficultySelect.value });
     if (isPaused) return;
 
     app.innerHTML = '';
