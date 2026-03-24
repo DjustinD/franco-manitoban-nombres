@@ -76,7 +76,6 @@ const recognition = new SpeechRecognition();
 recognition.lang = 'fr-CA';
 
 recognition.onstart = () => { isRecognitionActive = true; micInd.classList.remove('hidden'); };
-recognition.onend = () => { isRecognitionActive = false; micInd.classList.add('hidden'); };
 
 function speak(text) {
     return new Promise(resolve => {
@@ -89,20 +88,39 @@ function speak(text) {
     });
 }
 
+const STT_TIMEOUT_MS = 8000; // max wait for a recognition result before giving up
+
 function listenForWord(targetWord) {
     return new Promise((resolve) => {
+        let settled = false;
+        let timeoutId = null;
+
+        function done(result) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            resolve(result);
+        }
+
         // Prevent InvalidStateError by checking active status
         if (isRecognitionActive) {
             recognition.stop();
         }
-        
+
         // Small delay ensures the previous session actually closed
         setTimeout(() => {
-            try { 
-                recognition.start(); 
-            } catch(e) { 
-                console.error("Mic Error:", e);
-                resolve({ success: false, transcript: "" }); 
+            try {
+                log('stt_start', { module: currentModule, target: targetWord });
+                recognition.start();
+                // Safety timeout — resolves the promise if onresult/onerror never fire
+                timeoutId = setTimeout(() => {
+                    log('stt_timeout', { module: currentModule, target: targetWord, waitMs: STT_TIMEOUT_MS });
+                    try { recognition.stop(); } catch(e) {}
+                    done({ success: false, transcript: '[timeout]' });
+                }, STT_TIMEOUT_MS);
+            } catch(e) {
+                log('stt_start_error', { module: currentModule, target: targetWord, error: e.message });
+                done({ success: false, transcript: '' });
             }
         }, 300);
 
@@ -111,11 +129,21 @@ function listenForWord(targetWord) {
             const confidence = e.results[0][0].confidence;
             const matched = speechMatch(transcript, targetWord);
             log('stt', { module: currentModule, target: targetWord, heard: transcript, confidence: +confidence.toFixed(3), matched });
-            resolve({ success: matched, transcript });
+            done({ success: matched, transcript });
         };
         recognition.onerror = (e) => {
-            log('stt', { module: currentModule, target: targetWord, heard: null, error: e.error });
-            resolve({ success: false, transcript: '---' });
+            log('stt_error', { module: currentModule, target: targetWord, heard: null, error: e.error });
+            done({ success: false, transcript: '---' });
+        };
+        recognition.onend = () => {
+            isRecognitionActive = false;
+            micInd.classList.add('hidden');
+            // Fired when the browser closes the session — if nothing resolved yet, it means
+            // recognition ended silently (no result, no error). Log it so we can spot the freeze.
+            if (!settled) {
+                log('stt_end_no_result', { module: currentModule, target: targetWord });
+                done({ success: false, transcript: '[no-result]' });
+            }
         };
     });
 }
