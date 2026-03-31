@@ -3,6 +3,7 @@
 Un outil interactif pour apprendre les nombres en français (Canada) de 1 à 100.
 
 This interactive web application is designed to help learners master French numbers through auditory, oral, and written practice. It is specifically optimized for **French-Canadian (fr-CA)** phonetics and the regional counting standards used in Québec and Manitoba.
+https://djustind.github.io/franco-manitoban-nombres/
 
 ## 🚀 Fonctionnalités (Features)
 
