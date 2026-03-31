@@ -58,11 +58,12 @@ nav button.active {
 
 #difficulty {
     appearance: none;
-    background: var(--bg);
+    background: var(--bg) url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' stroke='%231565c0' stroke-width='2' fill='none' stroke-linecap='round'/></svg>") no-repeat right 0.6rem center;
     border: none;
     padding: 0.4rem 2rem 0.4rem 0.8rem;
     border-radius: 8px;
     font-weight: 600;
+    cursor: pointer;
 }
 .btn-pause {
     background: #455a64;
@@ -104,11 +105,17 @@ main {
     left: 50%;
     transform: translateX(-50%);
     padding: 0.8rem 1.5rem;
-    background: var(--error);
+    background: #00796b;
     color: white;
     border-radius: 50px;
     font-weight: bold;
     z-index: 100;
+    animation: micPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 121, 107, 0.5); }
+    60%       { box-shadow: 0 0 0 14px rgba(0, 121, 107, 0); }
 }
 
 #heard {
@@ -127,6 +134,13 @@ main {
     width: 92%;
     max-width: 500px;
     text-align: center;
+    animation: cardIn 0.22s ease-out;
+    transition: box-shadow 0.3s;
+}
+
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 .card p { margin: 10px 0; font-size: 1.1rem; }
 #reps { font-size: 1.6rem; margin: 15px 0; }
@@ -140,10 +154,18 @@ input[type="text"] {
     margin-bottom: 5px;
 }
 
-/* Pulse the card slightly when listening */
-.card:has(#mic-indicator:not(.hidden)) {
-    box-shadow: 0 0 15px var(--error);
-    transition: box-shadow 0.3s;
+/* Listening / speaking states driven by JS classes */
+.card.listening {
+    box-shadow: 0 0 0 3px #00796b, var(--shadow);
+}
+
+.card.speaking .big-number {
+    animation: speakFade 0.65s ease-in-out infinite alternate;
+}
+
+@keyframes speakFade {
+    from { opacity: 1; }
+    to   { opacity: 0.45; }
 }
 .big-number {
     font-size: 5rem;
@@ -162,8 +184,25 @@ button {
     color: white;
     cursor: pointer;
     font-weight: 700;
+    transition: filter 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+button:hover:not(:disabled) {
+    filter: brightness(1.15);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+button:active:not(:disabled) {
+    transform: scale(0.95);
 }
 
 .btn-secondary { background: #78909c; }
+
+/* Score update pop animation */
+@keyframes scorePop {
+    0%, 100% { transform: scale(1); }
+    50%       { transform: scale(1.4); }
+}
+.score-pop {
+    animation: scorePop 0.35s ease;
+}
 
 .hidden { display: none; }

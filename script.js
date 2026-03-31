@@ -75,7 +75,12 @@ const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecogni
 const recognition = new SpeechRecognition();
 recognition.lang = 'fr-CA';
 
-recognition.onstart = () => { isRecognitionActive = true; micInd.classList.remove('hidden'); };
+recognition.onstart = () => {
+    isRecognitionActive = true;
+    micInd.classList.remove('hidden');
+    const card = app.querySelector('.card');
+    if (card) card.classList.add('listening');
+};
 
 function speak(text) {
     return new Promise(resolve => {
@@ -83,7 +88,11 @@ function speak(text) {
         const utter = new SpeechSynthesisUtterance(text);
         utter.lang = 'fr-CA';
         log('tts', { module: currentModule, text });
-        utter.onend = resolve;
+        const card = app.querySelector('.card');
+        if (card) card.classList.add('speaking');
+        const finish = () => { if (card) card.classList.remove('speaking'); resolve(); };
+        utter.onend = finish;
+        utter.onerror = finish;
         synth.speak(utter);
     });
 }
@@ -138,6 +147,8 @@ function listenForWord(targetWord) {
         recognition.onend = () => {
             isRecognitionActive = false;
             micInd.classList.add('hidden');
+            const card = app.querySelector('.card');
+            if (card) card.classList.remove('listening');
             // Fired when the browser closes the session — if nothing resolved yet, it means
             // recognition ended silently (no result, no error). Log it so we can spot the freeze.
             if (!settled) {
@@ -168,8 +179,15 @@ function updateScore(correct) {
     total++;
     if (correct) { score++; streak++; }
     else { streak = 0; }
-    document.getElementById('score-count').innerText = `✅ ${score} / ${total}`;
-    document.getElementById('streak-count').innerText = `🔥 ${streak}`;
+    const scoreEl = document.getElementById('score-count');
+    const streakEl = document.getElementById('streak-count');
+    scoreEl.innerText = `✅ ${score} / ${total}`;
+    streakEl.innerText = `🔥 ${streak}`;
+    [scoreEl, streakEl].forEach(el => {
+        el.classList.remove('score-pop');
+        void el.offsetWidth; // force reflow so animation restarts
+        el.classList.add('score-pop');
+    });
     log('score', { correct, score, total, streak });
 }
 
@@ -306,6 +324,12 @@ async function runSpellModule(num, word) {
 
 window.onload = () => {
     difficultySelect.onchange = () => { if(!isPaused) switchModule(currentModule); };
+    pauseBtn.textContent = '▶️ Démarrer';
     // Set initial view without starting automatically
     app.innerHTML = '<div class="card"><h2>Prêt?</h2><button onclick="toggleProcess()">Démarrer la session</button></div>';
+    // Space bar = pause / resume (ignored while typing in the spell input)
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.code === 'Space') { e.preventDefault(); toggleProcess(); }
+    });
 };
